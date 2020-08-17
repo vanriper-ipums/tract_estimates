@@ -133,6 +133,32 @@ compute_cum_sum <- function(x, group_var_geog, group_var_n, cum_var, interval_va
 
 # fun sets cum_days_interval to particular value based on date value for 2000-2010 time period. I have pre-computed these 
 # intervals and hard coded them into the function.
+compute_cum_days_interval_2010_2019 <- function(x, date_var, cum_var){
+  cum_var = enquo(cum_var)
+  date_var = enquo(date_var)
+  
+  cum_var_name <- paste0(quo_name(cum_var))
+  
+  x <- x %>%
+    mutate(!!cum_var_name := case_when(!!date_var == "2010-04-01" ~ 0,
+                                       !!date_var == "2010-07-01" ~ 91,
+                                       !!date_var == "2011-07-01" ~ 456,
+                                       !!date_var == "2012-07-01" ~ 822,
+                                       !!date_var == "2013-07-01" ~ 1187,
+                                       !!date_var == "2014-07-01" ~ 1552,
+                                       !!date_var == "2015-07-01" ~ 1917,
+                                       !!date_var == "2016-07-01" ~ 2283,
+                                       !!date_var == "2017-07-01" ~ 2648,
+                                       !!date_var == "2018-07-01" ~ 3013,
+                                       !!date_var == "2019-07-01" ~ 3378,
+                                       !!date_var == "2020-04-01" ~ 0))
+  
+  return(x)
+}
+
+
+# fun sets cum_days_interval to particular value based on date value for 2000-2010 time period. I have pre-computed these 
+# intervals and hard coded them into the function.
 compute_cum_days_interval_2000_2010 <- function(x, date_var, cum_var){
   cum_var = enquo(cum_var)
   date_var = enquo(date_var)
@@ -214,4 +240,170 @@ linear_interpolation <- function(x, var1, diff_var, interval_var){
   
   #  t <- mutate(t, CL8AA = CL8AA + ((cum_days_interval / days) * pdiff))
   return(x)
+}
+
+# fun to compute sex/age groups for CCR and CTW calculations
+# - takes in a single df and computes correct sex by age cohorts
+# - converts wide df to long df
+# - returns long df with extra variables 
+compute_age_sex_cohorts <- function(x){
+  x <- x %>%
+    mutate(
+      male_age0_4 = CN8AA + CN8AB  + CN8AC  + CN8AD  + CN8AE,
+      male_age5_9 = CN7AB,
+      male_age10_14 = CN7AC,
+      male_age15_19 = CN7AD + CN7AE,
+      male_age20_24 = CN7AF + CN7AG + CN7AH,
+      male_age25_29 = CN7AI,
+      male_age30_34 = CN7AJ,
+      male_age35_39 = CN7AK,
+      male_age40_44 = CN7AL,
+      male_age45_49 = CN7AM,
+      male_age50_54 = CN7AN,
+      male_age55_59 = CN7AO,
+      male_age60_64 = CN7AP + CN7AQ,
+      male_age65_69 = CN7AR + CN7AS,
+      male_age70_74 = CN7AT,
+      male_age75_79 = CN7AU,
+      male_age80_84 = CN7AV,
+      male_age85 = CN7AW,
+      female_age0_4 = CN8AU + CN8AV + CN8AW + CN8AX + CN8AY,
+      female_age5_9 = CN7AY,
+      female_age10_14 = CN7AZ,
+      female_age15_19 =  CN7BA + CN7BB,
+      female_age20_24 =  CN7BC  + CN7BD  + CN7BE,
+      female_age25_29 =  CN7BF,
+      female_age30_34 =  CN7BG,
+      female_age35_39 =  CN7BH,
+      female_age40_44 =  CN7BI,
+      female_age45_49 =  CN7BJ,
+      female_age50_54 =  CN7BK,
+      female_age55_59 =  CN7BL,
+      female_age60_64 = CN7BM + CN7BN,
+      female_age65_69 = CN7BO + CN7BP,
+      female_age70_74 =  CN7BQ,
+      female_age75_79 =  CN7BR,
+      female_age80_84 = CN7BS,
+      female_age85 = CN7BT
+    ) %>%
+    select(GISJOIN, DATAYEAR, male_age0_4:female_age85) %>%
+    gather(var_code, n, male_age0_4:female_age85)
+  
+  return(x)
+}
+
+# fun to compute wide data frame for age/sex cohorts 
+# - takes in single long df
+# - pivots it wider so output can be used to compute CCRs
+create_wide_age_cohort_df <- function(x){
+  x <- x %>%
+    mutate(uniq_code = paste0("y", DATAYEAR, "_", var_code)) %>%
+    select(-var_code, -DATAYEAR) %>%
+    pivot_wider(names_from = uniq_code, values_from = n)
+  
+  return(x)
+  
+}
+
+# fun to compute CCRs for age/sex cohorts 
+# - takes in a single df
+# - computes CCRs
+compute_ccr <- function(x){
+  
+  x <- x %>%
+    mutate(ccr_male_age10_14 = y2010_male_age10_14 / y2000_male_age0_4,
+           ccr_male_age15_19 = y2010_male_age15_19 / y2000_male_age5_9,
+           ccr_male_age20_24 = y2010_male_age20_24 / y2000_male_age10_14,
+           ccr_male_age25_29 = y2010_male_age25_29 / y2000_male_age15_19,
+           ccr_male_age30_34 = y2010_male_age30_34 / y2000_male_age20_24,
+           ccr_male_age35_39 = y2010_male_age35_39 / y2000_male_age25_29,
+           ccr_male_age40_44 = y2010_male_age40_44 / y2000_male_age30_34,
+           ccr_male_age45_49 = y2010_male_age45_49 / y2000_male_age35_39,
+           ccr_male_age50_54 = y2010_male_age50_54 / y2000_male_age40_44,
+           ccr_male_age55_59 = y2010_male_age55_59 / y2000_male_age45_49,
+           ccr_male_age60_64 = y2010_male_age60_64 / y2000_male_age50_54,
+           ccr_male_age65_69 = y2010_male_age65_69 / y2000_male_age55_59,
+           ccr_male_age70_74 = y2010_male_age70_74 / y2000_male_age60_64,
+           ccr_male_age75_79 = y2010_male_age75_79 / y2000_male_age65_69,
+           ccr_male_age80_84 = y2010_male_age80_84 / y2000_male_age70_74,
+           ccr_male_age85 = y2010_male_age85 / (y2000_male_age75_79 + y2000_male_age80_84 + y2000_male_age85),
+           ccr_female_age10_14 = y2010_female_age10_14 / y2000_female_age0_4,
+           ccr_female_age15_19 = y2010_female_age15_19 / y2000_female_age5_9,
+           ccr_female_age20_24 = y2010_female_age20_24 / y2000_female_age10_14,
+           ccr_female_age25_29 = y2010_female_age25_29 / y2000_female_age15_19,
+           ccr_female_age30_34 = y2010_female_age30_34 / y2000_female_age20_24,
+           ccr_female_age35_39 = y2010_female_age35_39 / y2000_female_age25_29,
+           ccr_female_age40_44 = y2010_female_age40_44 / y2000_female_age30_34,
+           ccr_female_age45_49 = y2010_female_age45_49 / y2000_female_age35_39,
+           ccr_female_age50_54 = y2010_female_age50_54 / y2000_female_age40_44,
+           ccr_female_age55_59 = y2010_female_age55_59 / y2000_female_age45_49,
+           ccr_female_age60_64 = y2010_female_age60_64 / y2000_female_age50_54,
+           ccr_female_age65_69 = y2010_female_age65_69 / y2000_female_age55_59,
+           ccr_female_age70_74 = y2010_female_age70_74 / y2000_female_age60_64,
+           ccr_female_age75_79 = y2010_female_age75_79 / y2000_female_age65_69,
+           ccr_female_age80_84 = y2010_female_age80_84 / y2000_female_age70_74,
+           ccr_female_age85 = y2010_female_age85 / (y2000_female_age75_79 + y2000_female_age80_84 + y2000_female_age85))
+  
+  return(x)
+}
+
+compute_cohort_size_flag <- function(x){
+  x<- x %>%
+    filter(DATAYEAR == 2010) %>%
+    filter(!var_code %in% c("male_age0_4", "male_age5_9", "female_age0_4", "female_age5_9")) %>%
+    mutate(ccr_cap = case_when(n < 25 ~ 1,
+                               n >= 25 & n < 100 ~ 2,
+                               n >= 100 ~ 0))
+  
+  return(x)
+  
+}
+
+create_long_ccr_df <- function(x){
+  x <- x %>%
+    select(GISJOIN, ccr_male_age10_14:ccr_female_age85) %>%
+    pivot_longer(cols = c(ccr_male_age10_14:ccr_female_age85), names_to = "var_code", values_to = "ccr") %>%
+    mutate(age_code = str_remove(var_code, "ccr_"))
+  
+  return(x)
+}
+
+set_ccr_caps <- function(x){
+  x <- x %>%
+    mutate(ccr_final = case_when((ccr_cap == 1 & ccr > 1.0) ~ 1.0,
+                                 (ccr_cap == 2 & ccr > 2.0) ~ 2.0,
+                                 is.nan(ccr) ~ 0.0,
+                                 is.infinite(ccr) ~ 2.0,
+                                 (ccr_cap == 0 & ccr > 2.0) ~ 2.0,
+                                 TRUE ~ ccr))
+  
+  return(x)
+  
+}
+
+compute_ctw <- function(x){
+  x <- x %>%
+    mutate(ctw_male_age0_4 = (y2010_male_age0_4) / (y2010_female_age20_24 + y2010_female_age25_29 + y2010_female_age30_34 + y2010_female_age35_39 + y2010_female_age40_44),
+           ctw_female_age0_4 = (y2010_female_age0_4) / (y2010_female_age20_24 + y2010_female_age25_29 + y2010_female_age30_34 + y2010_female_age35_39 + y2010_female_age40_44),
+           ctw_male_age5_9 = (y2010_male_age5_9) / (y2010_female_age30_34 + y2010_female_age35_39 + y2010_female_age40_44 + y2010_female_age45_49),
+           ctw_female_age5_9 = (y2010_female_age5_9) / (y2010_female_age30_34 + y2010_female_age35_39 + y2010_female_age40_44 + y2010_female_age45_49))
+  
+  return(x)
+}
+
+create_long_ctw_df <- function(x){
+  x <- x %>%
+    select(GISJOIN, ctw_male_age0_4:ctw_female_age5_9) %>%
+    pivot_longer(cols = c(ctw_male_age0_4:ctw_female_age5_9), names_to = "var_code", values_to = "ctw")
+  
+  return(x)
+}
+
+replace_nan_inf_ctw <- function(x){
+  x <- x %>%
+    mutate(ctw_final = case_when(is.nan(ctw) ~ 0.0,
+                                 is.infinite(ctw) ~ 2.0,
+                                 TRUE ~ ctw))
+  
+  return(x)    
 }
