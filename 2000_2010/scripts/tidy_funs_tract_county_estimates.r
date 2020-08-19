@@ -407,3 +407,23 @@ replace_nan_inf_ctw <- function(x){
   
   return(x)    
 }
+
+create_females_20_44 <- function(x){
+  y <- x %>%
+    mutate(recode = case_when(var_code %in% c("female_age20_24", "female_age25_29", "female_age30_34", "female_age35_39", "female_age40_44") ~ "female_age20_44")) %>%
+    filter(!is.na(recode)) %>%
+    group_by(GISJOIN) %>%
+    summarise(n = sum(n))
+  
+  return(y)
+}
+
+create_females_30_49 <- function(x){
+  y <- x %>%
+    mutate(recode = case_when(var_code %in% c("female_age30_34", "female_age35_39", "female_age40_44", "female_age45_49") ~ "female_age30_49")) %>%
+    filter(!is.na(recode)) %>%
+    group_by(GISJOIN) %>%
+    summarise(n = sum(n))
+  
+  return(y)
+}
