@@ -14,7 +14,6 @@ require(tidycensus)
 source("/pkg/popgis/labpcs/data_projects/tract_estimates/2000_2010/scripts/tidy_funs_tract_county_estimates.r")
 
 # constants 
-#popest_dir <- "/pkg/popgis/labpcs/data_projects/tract_estimates/2000_2010/data/popest/"
 nhgis_dir <- "/pkg/popgis/labpcs/data_projects/tract_estimates/2000_2010/data/nhgis/"
 outdata_dir <- "/pkg/popgis/labpcs/data_projects/tract_estimates/2000_2010/data/outdata/"
 
@@ -43,13 +42,18 @@ c_wide <- create_wide_age_cohort_df(c)
 # 
 # ccr_age = Population_age_2010 / Popualtion_age-10_2000
 # 
-# where age is the sex-specific age group in question. For the top age category (85+), the
-# denominator is the sum of the Census 2000 counts of ages 75-70, 80-84, and 85+.
+# where age is the sex-specific age group in question. We do not compute CCRs for
+# ages 0-4 or 5-9; instead, we will use child-to-women ratios for those age groups.
+# For the top age category (85+), the denominator is the sum of the Census 2000 counts 
+# of ages 75-70, 80-84, and 85+.
 
 t_wide_ccr <- compute_ccr(t_wide)
 c_wide_ccr <- compute_ccr(c_wide)
 
 #### 6. Generate cohort size flags for each CCR cohort #### 
+# we will use the cohort size flags when we set the CCR caps. If a cohort is < 25, the
+# CCR for that cohort is capped to 1.0. If a cohort is >= 25 and < 100, the CCR is capped
+# at 2.0. 
 t_cohort_size <- compute_cohort_size_flag(t)
 c_cohort_size <- compute_cohort_size_flag(c)
 
@@ -138,41 +142,8 @@ c_long_ccr_final <- set_ccr_caps(c_long_ccr)
 #   geom_histogram() + 
 #   facet_wrap(vars(var_code))
 
-#### 10. Compute Child-to-Women Ratios 2000-2010 by age/tract #### 
-# Child-to-women ratios are computed as follows:
-# 
-# CTW_male0_4 = Population_2010_male_age0_4 / Population_2010_female_age_20_44
-# CTW_female0_4 = Population_2010_female_age0_4 / Population_2010_female_age_20_44
-# CTW_male5_9 = Population_2010_male_age5_9 / Population_2010_female_age_30_49
-# CTW_female5_9 = Population_2010_female_age5_9 / Population_2010_female_age_30_49
-# 
-# CTW_age0_4 = Population_2010_age0_4 / Population_2010_female_age_20_44
-# CTW_age5_9 = Population_2010_age5_9 / Population_2010_female_age_30_49
-# 
-# where the numerator is the number of males and females in each age group. We will
-# apply the overall CTW to each sex.
 
-t_wide_ctw <- compute_ctw(t_wide_ccr)
-c_wide_ctw <- compute_ctw(c_wide_ccr)
-
-#### 11. Create a usable long data frame from the CTWs #### 
-t_long_ctw <- create_long_ctw_df(t_wide_ctw)
-c_long_ctw <- create_long_ctw_df(c_wide_ctw)
-
-#### 12. Analysis of the CTWs ####
-# Number of tract-cohort INF values - 12 out of 146,114
-# t_long_ctw %>%
-#   summarise(inf_count = sum(is.infinite(ctw)))
-# 
-# # Number of tract-cohort NaN values - 1222 out of 146,114
-# t_long_ctw %>%
-#   summarise(nan_count = sum(is.nan(ctw)))
-
-#### 13. Set NaN and Inf values for tract-level CTWs
-t_long_ctw <- replace_nan_inf_ctw(t_long_ctw)
-c_long_ctw <- replace_nan_inf_ctw(c_long_ctw)
-
-#### 14. Apply the CCRs to the 2010 counts to create 2020 estimates ####
+#### 10. Apply the CCRs to the 2010 counts to create 2020 estimates ####
 # Create a match code in the t_long_ccr_final to join CCRs to 2010 counts
 t_long_ccr_final <- t_long_ccr_final %>%
   mutate(var_code = str_remove(var_code, "ccr_")) %>%
@@ -183,11 +154,11 @@ c_long_ccr_final <- c_long_ccr_final %>%
   select(-n)
 
 # Create a match code in the t_long_ctw and c_long_ctw
-t_long_ctw <- t_long_ctw %>%
-  mutate(var_code = str_remove(var_code, "ctw_"))
-
-c_long_ctw <- c_long_ctw %>%
-  mutate(var_code = str_remove(var_code, "ctw_"))
+# t_long_ctw <- t_long_ctw %>%
+#   mutate(var_code = str_remove(var_code, "ctw_"))
+# 
+# c_long_ctw <- c_long_ctw %>%
+#   mutate(var_code = str_remove(var_code, "ctw_"))
 
 # Keep only 2010 DATAYEAR from T
 t_2010 <- t %>%
@@ -214,18 +185,6 @@ c_2010 <- c_2010 %>%
   mutate(n2020 = n * ccr_final) %>%
   select(GISJOIN, var_code, n2010 = n, n2020, -ccr, -ccr_final, -ccr_cap)
 
-# t_2010_ctw <- t_2010_ctw %>%
-#   mutate(n2020 = n * ctw_final) %>%
-#   select(GISJOIN, var_code, n2010 = n, n2020, -ctw_final, -ctw)
-# 
-# c_2010_ctw <- c_2010_ctw %>%
-#   mutate(n2020 = n * ctw_final) %>%
-#   select(GISJOIN, var_code, n2010 = n, n2020, -ctw_final, -ctw)
-
-# Bind the CCR and CTW dfs together
-# t_2010 <- bind_rows(t_2010_ctw, t_2010)
-# c_2010 <- bind_rows(c_2010_ctw, c_2010)
-
 # Create long t_2010 df 
 t_long_2010 <- t_2010 %>%
   pivot_longer(n2010:n2020, names_to = "year", values_to = "n") %>%
@@ -238,6 +197,40 @@ c_long_2010 <- c_2010 %>%
   mutate(DATAYEAR = case_when(year == "n2010" ~ 2010,
                               year == "n2020" ~ 2020)) %>%
   select(-year)
+
+#### 11. Compute Child-to-Women Ratios 2000-2010 by age/tract #### 
+# Child-to-women ratios are computed as follows:
+# 
+# CTW_male0_4 = Population_2010_male_age0_4 / Population_2010_female_age_20_44
+# CTW_female0_4 = Population_2010_female_age0_4 / Population_2010_female_age_20_44
+# CTW_male5_9 = Population_2010_male_age5_9 / Population_2010_female_age_30_49
+# CTW_female5_9 = Population_2010_female_age5_9 / Population_2010_female_age_30_49
+# 
+# CTW_age0_4 = Population_2010_age0_4 / Population_2010_female_age_20_44
+# CTW_age5_9 = Population_2010_age5_9 / Population_2010_female_age_30_49
+# 
+# where the numerator is the number of males and females in each age group. We will
+# apply the overall CTW to each sex.
+
+t_wide_ctw <- compute_ctw(t_wide_ccr)
+c_wide_ctw <- compute_ctw(c_wide_ccr)
+
+#### 12. Create a usable long data frame from the CTWs #### 
+t_long_ctw <- create_long_ctw_df(t_wide_ctw)
+c_long_ctw <- create_long_ctw_df(c_wide_ctw)
+
+#### 13. Analysis of the CTWs ####
+# Number of tract-cohort INF values - 12 out of 146,114
+# t_long_ctw %>%
+#   summarise(inf_count = sum(is.infinite(ctw)))
+# 
+# # Number of tract-cohort NaN values - 1222 out of 146,114
+# t_long_ctw %>%
+#   summarise(nan_count = sum(is.nan(ctw)))
+
+#### 14. Set NaN and Inf values for tract-level CTWs
+t_long_ctw <- replace_nan_inf_ctw(t_long_ctw)
+c_long_ctw <- replace_nan_inf_ctw(c_long_ctw)
 
 #### 15. Pull out the female age groups from t_long_2010 and c_long_2010 required for CTW application #### 
 # Keep females age 20-44 for age 0-4
