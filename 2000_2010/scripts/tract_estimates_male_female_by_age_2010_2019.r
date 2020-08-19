@@ -4,6 +4,15 @@
 # 
 # This script prepares the tract estimates for 2010-2019. It reads in the vintage 2019 county estimates
 # using tidycensus.
+# 
+# Notes to add to scripts:
+# 1. We must make a few decisions that will impact the estimates:
+#   - CCR caps matter a ton
+#   - CTW values for cohorts with Inf values (e.g. no 0-4 or 5-9 in 20000 and greater than zero 0-4 and 
+#   5-9 year olds in 2010)
+#   - CTW denominators are females of child-bearing age, and we must choose what we mean by "child-bearing age"
+#     - Strate et al. use females 20-44 for children 0-4 and females 30-49 for children 5-9, but those 
+#       age ranges were based on Massachusetts-specific birth data
 
 require(tidyverse)
 require(lubridate)
@@ -153,13 +162,6 @@ c_long_ccr_final <- c_long_ccr_final %>%
   mutate(var_code = str_remove(var_code, "ccr_")) %>%
   select(-n)
 
-# Create a match code in the t_long_ctw and c_long_ctw
-# t_long_ctw <- t_long_ctw %>%
-#   mutate(var_code = str_remove(var_code, "ctw_"))
-# 
-# c_long_ctw <- c_long_ctw %>%
-#   mutate(var_code = str_remove(var_code, "ctw_"))
-
 # Keep only 2010 DATAYEAR from T
 t_2010 <- t %>%
   filter(DATAYEAR == 2010)
@@ -231,6 +233,13 @@ c_long_ctw <- create_long_ctw_df(c_wide_ctw)
 #### 14. Set NaN and Inf values for tract-level CTWs
 t_long_ctw <- replace_nan_inf_ctw(t_long_ctw)
 c_long_ctw <- replace_nan_inf_ctw(c_long_ctw)
+
+#### 15. Create a match code in the t_long_ctw and c_long_ctw ####
+t_long_ctw <- t_long_ctw %>%
+   mutate(var_code = str_remove(var_code, "ctw_"))
+ 
+c_long_ctw <- c_long_ctw %>%
+   mutate(var_code = str_remove(var_code, "ctw_"))
 
 #### 15. Pull out the female age groups from t_long_2010 and c_long_2010 required for CTW application #### 
 # Keep females age 20-44 for age 0-4
