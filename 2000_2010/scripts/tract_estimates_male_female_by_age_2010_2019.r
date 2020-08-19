@@ -4,8 +4,6 @@
 # 
 # This script prepares the tract estimates for 2010-2019. It reads in the vintage 2019 county estimates
 # using tidycensus.
-# 
-# Step 1. Load in the NHGIS standardized sex/age data to R. 
 
 require(tidyverse)
 require(lubridate)
@@ -207,21 +205,6 @@ c_2010 <- c_2010 %>%
   left_join(c_long_ccr_final, by = c("GISJOIN", "var_code")) %>%
   filter(!is.na(ccr_final))
 
-# Join t_long_ctw to t_2010 (and c_long_ctw to c_2010) and remove OLDER ages 
-# t_2010_ctw <- t_2010 %>%
-#   mutate(new_var_code = str_remove(var_code, "male_"),
-#          new_var_code = str_remove(new_var_code, "fe")) %>%
-#   left_join(t_long_ctw, by = c("GISJOIN", "new_var_code" = "var_code")) %>%
-#   select(-new_var_code) %>%
-#   filter(!is.na(ctw_final))
-
-# c_2010_ctw <- c_2010 %>%
-#   mutate(new_var_code = str_remove(var_code, "male_"),
-#          new_var_code = str_remove(new_var_code, "fe")) %>%
-#   left_join(c_long_ctw, by = c("GISJOIN", "new_var_code" = "var_code")) %>%
-#   select(-new_var_code) %>%
-#   filter(!is.na(ctw_final))
-
 # Compute 2020 estimates- multiply n by ccr_final and then create df with fewer vars
 t_2010 <- t_2010 %>%
   mutate(n2020 = n * ccr_final) %>%
@@ -288,8 +271,7 @@ c_long_ctw_age5_9 <- c_long_ctw %>%
   filter(var_code == "male_age5_9" | var_code == "female_age5_9")
 
 # b. Join the t_females_XX_YY onto CTW rates and multiply ctw * n
-# - this yields the 2020 estimate for male_age0_4, male_age5_9, female_age0_4, and 
-# female_age5_9
+# - this yields the 2020 estimate for male_age0_4, male_age5_9, female_age0_4, and female_age5_9
 t_long_ctw_age0_4_females_age20_44 <- t_long_ctw_age0_4 %>%
   left_join(t_females_20_44, by = "GISJOIN") %>%
   mutate(n = n * ctw_final,
@@ -338,7 +320,7 @@ c_long_2010 <- bind_rows(c_long_2010, c_long_ctw_age0_4_females_age20_44)
 c_long_2010 <- bind_rows(c_long_2010, c_long_ctw_age5_9_females_age30_49)
 
 
-#### 16. Run the 2010 data through the prep steps for interpolation #### 
+#### 19. Run the 2010 data through the prep steps for interpolation #### 
 # a. set begin and end values, convert to dates and find number of days between them
 begin_date <- ymd("2010-04-01")
 end_date <- ymd("2020-04-01")
@@ -378,7 +360,6 @@ t_male <- compute_diff(t_male, d2020, n, var_code, GISJOIN)
 c <- compute_diff(c_long_2010, d2020, n, var_code, GISJOIN)
 
 # g. Create a custom span option for adding a specific set of months to df (all April and July months)
-# NOPE - need to base this on only 2010 (this is on both the 2010 AND 2020 dates in t_male$date1)
 time_span <- 
   span_around(begin_date, interval = "month", end_shift = "10 year") %>%
   subset_span(list(mon = c(4, 7)))
@@ -401,12 +382,12 @@ t_female <- compute_cum_days_interval_2010_2019(t_female, date1, cum_days_interv
 t_male <- compute_cum_days_interval_2010_2019(t_male, date1, cum_days_interval)
 c <- compute_cum_days_interval_2010_2019(c, date1, cum_days_interval)
 
-# 7. fill diff and CL8AA down by group 
+# j. fill diff and CL8AA down by group 
 t_female <- fill_down(t_female, GISJOIN, var_code, n)
 t_male <- fill_down(t_male, GISJOIN, var_code, n)
 c <- fill_down(c, GISJOIN, var_code, n)
 
-# 8. Compute a linear interpolation of for each intercensal year value. Essentially, this function
+# k. Compute a linear interpolation of for each intercensal year value. Essentially, this function
 # spreads the n_diff out over each year. 
 t_female <- linear_interpolation(t_female, n, n_diff, cum_days_interval)
 t_male <- linear_interpolation(t_male, n, n_diff, cum_days_interval)
