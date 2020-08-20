@@ -26,7 +26,6 @@ source("/pkg/popgis/labpcs/data_projects/tract_estimates/2000_2010/scripts/tidy_
 nhgis_dir <- "/pkg/popgis/labpcs/data_projects/tract_estimates/2000_2010/data/nhgis/"
 outdata_dir <- "/pkg/popgis/labpcs/data_projects/tract_estimates/2000_2010/data/outdata/"
 
-
 #### 1. Load in the NHGIS standardized sex/age by tract/county data ####
 t <- read_csv(paste0(nhgis_dir, "nhgis1133_ts_geog2010_tract.csv"), guess_max = 200000)
 c <- read_csv(paste0(nhgis_dir, "nhgis1133_ts_geog2010_county.csv"), guess_max = 200000)
