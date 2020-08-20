@@ -37,6 +37,22 @@ t <- t %>%
 c <- c %>%
   filter(DATAYEAR == 2000 | DATAYEAR == 2010)
 
+#### 2a. Bedford Independent City recodes #### 
+# Recode Bedford independent city tract to Bedford county FIPS code
+t <- t %>%
+  mutate(GISJOIN = case_when(STATEA == "51" & COUNTYA == "515" ~ paste0("G", STATEA, "0", "019", "0", TRACTA),
+                             TRUE ~ GISJOIN))
+
+# Recode Bedford independent city FIPS code to Bedford county FIPS and collapse to create single entity 
+c <- c %>%
+  mutate(GISJOIN = case_when(STATEA == "51" & COUNTYA == "515" ~ paste0("G", STATEA, "0", "019", "0"),
+                             TRUE ~ GISJOIN)) %>%
+  pivot_longer(CL8AA:CN8BNU, names_to = "var_code", values_to = "n") %>%
+  group_by(GISJOIN, DATAYEAR, var_code) %>%
+  summarise(n = sum(n, na.rm = TRUE)) %>%
+  pivot_wider(names_from = "var_code", values_from = "n") %>%
+  ungroup()
+
 #### 3. Creates age groups required for CCR calculations ####
 t <- compute_age_sex_cohorts(t)
 c <- compute_age_sex_cohorts(c)
