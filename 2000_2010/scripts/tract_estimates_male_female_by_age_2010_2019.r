@@ -551,7 +551,6 @@ c_est <- c_est %>%
   filter(!str_detect(var_code, "total")) %>%
   arrange(GISJOIN, var_code, date1)
 
-
 #### County estimates: County recodes #### 
 # Recode Oglala Lakota county (G4601020) to Shannon county (G4601130) so it matches with 2010
 # Recode Kusilvak Census area (G0201580) to Wade Hampton Census Area (G0202700) so it matches 2010
@@ -612,8 +611,8 @@ t_male <- mutate(t_male, n_est = n * var_ratio)
 t_female <- mutate(t_female, n_est = n * var_ratio)
 
 # fields to keep in output data
-t_male <- select(t_male, GISJOIN, STATE, date1, cum_days_interval, var_code, n_diff, n.x, n.y, var_ratio, n, n_est)
-t_female <- select(t_female, GISJOIN, STATE, date1, cum_days_interval, var_code, n_diff, n.x, n.y, var_ratio, n, n_est)
+t_male <- select(t_male, GISJOIN, GISJOIN_CTY, date1, cum_days_interval, var_code, n_diff, n.x, n.y, var_ratio, n, n_est)
+t_female <- select(t_female, GISJOIN, GISJOIN_CTY, date1, cum_days_interval, var_code, n_diff, n.x, n.y, var_ratio, n, n_est)
 
 # write out the CSV files
 write_csv(t_male, paste0(outdata_dir, "tct10_19_male.csv"))
