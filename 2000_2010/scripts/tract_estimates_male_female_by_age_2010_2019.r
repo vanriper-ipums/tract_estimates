@@ -383,15 +383,15 @@ time_span <-
 
 # h. Use the pad_cust to add records to t_male and t_female using time_span
 t_male <- t_male %>%
-  pad_cust(time_span, group = c("GISJOIN", "var_code")) %>%
+  pad_cust(time_span, group = c("GISJOIN", "var_code"), drop_last_spanned = FALSE) %>%
   filter(date1 == "2010-04-01" | date1 == "2020-04-01" | month(date1) == 7 )
 
 t_female <- t_female %>%
-  pad_cust(time_span, group = c("GISJOIN", "var_code")) %>%
+  pad_cust(time_span, group = c("GISJOIN", "var_code"), drop_last_spanned = FALSE) %>%
   filter(date1 == "2010-04-01" |date1 == "2020-04-01" | month(date1) == 7)
 
 c <- c %>%
-  pad_cust(time_span, group = c("GISJOIN", "var_code")) %>%
+  pad_cust(time_span, group = c("GISJOIN", "var_code"), drop_last_spanned = FALSE) %>%
   filter(date1 == "2010-04-01" |date1 == "2020-04-01" | month(date1) == 7)
 
 # i. compute cumulative days interval
@@ -410,5 +410,213 @@ t_female <- linear_interpolation(t_female, n, n_diff, cum_days_interval)
 t_male <- linear_interpolation(t_male, n, n_diff, cum_days_interval)
 c <- linear_interpolation(c, n, n_diff, cum_days_interval)
 
+
+#### Prepare 2010-2019 county estimates data #### 
+
+#### County estimates: constants ####
+popest_dir <- "/pkg/popgis/labpcs/data_projects/tract_estimates/2010_2019/data/popest/"
+popest_file <- "cc-est2019-alldata.csv"
+
+#### County estimates: Read in 2010-2019 county pop estimates file ####
+c_est <- read_csv(paste0(popest_dir, popest_file))
+
+#### County estimates: Select out required columns for further processing ####  
+# select out columns from STATE to TOT_POP because that's all I need for now
+c_est<- select(c_est, STATE:TOT_FEMALE)
+
+#### County estimates: Create a GISJOIN for each record #### 
+c_est<- c_est %>%
+  mutate(GISJOIN = paste0("G",STATE,"0",COUNTY,"0"))
+
+#### County estimates: Filter out YEAR == 1 from dataset ####
+# We used population estimates base from 2000-2010, so we should use the same for 2010-2019. 
+# The pop estimates base is YEAR == 2. YEAR == 1 represents the census 2010 population
+c_est <- c_est %>%
+  filter(YEAR != 1)
+
+#### County estimates: Create a new date column to convert YEAR to a date from an integer #### 
+# Add new date column and recode from integers in original data file
+# Then, convert the recoded value into a Date type
+c_est<- c_est %>%
+  mutate(date_str = case_when((YEAR == 1) ~ "2010-04-01",
+                              (YEAR == 2) ~ "2010-04-01",
+                              (YEAR == 3) ~ "2010-07-01",
+                              (YEAR == 4) ~ "2011-07-01",
+                              (YEAR == 5) ~ "2012-07-01",
+                              (YEAR == 6) ~ "2013-07-01",
+                              (YEAR == 7) ~ "2014-07-01",
+                              (YEAR == 8) ~ "2015-07-01",
+                              (YEAR == 9) ~ "2016-07-01",
+                              (YEAR == 10) ~ "2017-07-01",
+                              (YEAR == 11) ~ "2018-07-01",
+                              (YEAR == 12) ~ "2019-07-01"),
+         date1 = ymd(date_str))
+
+
+#### County estimates: Create a factor for AGEGRP variable ####
+c_est$AGEGRP <- factor(c_est$AGEGRP, 
+                       levels=c(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18), 
+                       labels = c("total",
+                                  "age0_4",
+                                  "age5_9",
+                                  "age10_14",
+                                  "age15_19",
+                                  "age20_24",
+                                  "age25_29",
+                                  "age30_34",
+                                  "age35_39",
+                                  "age40_44",
+                                  "age45_49",
+                                  "age50_54",
+                                  "age55_59",
+                                  "age60_64",
+                                  "age65_69",
+                                  "age70_74",
+                                  "age75_79",
+                                  "age80_84",
+                                  "age85"))
+
+#### County estimates: Pivot the c_est to a long data frame ####
+# Select a set of attributes and then pivot_longer
+c_est <- c_est %>%
+  select(AGEGRP:date1, -date_str) %>%
+  pivot_longer(names_to = "var_code", values_to = "n", TOT_POP:TOT_FEMALE)
+
+#### County estimates: Recode values in var_code to match NHGIS standardized codes #### 
+c_est <- c_est %>%
+  mutate(var_code = case_when((var_code == "TOT_POP" & AGEGRP == "total") ~ "total_pop",
+                              (var_code == "TOT_MALE" & AGEGRP == "total") ~ "total_male",
+                              (var_code == "TOT_FEMALE" & AGEGRP == "total") ~ "total_female",
+                              (var_code == "TOT_MALE" & AGEGRP == "age0_4") ~ "male_age0_4",
+                              (var_code == "TOT_MALE" & AGEGRP == "age5_9") ~ "male_age5_9",
+                              (var_code == "TOT_MALE" & AGEGRP == "age10_14") ~ "male_age10_14",
+                              (var_code == "TOT_MALE" & AGEGRP == "age15_19") ~ "male_age15_19",
+                              (var_code == "TOT_MALE" & AGEGRP == "age20_24") ~ "male_age20_24",
+                              (var_code == "TOT_MALE" & AGEGRP == "age25_29") ~ "male_age25_29",
+                              (var_code == "TOT_MALE" & AGEGRP == "age30_34") ~ "male_age30_34",
+                              (var_code == "TOT_MALE" & AGEGRP == "age35_39") ~ "male_age35_39",
+                              (var_code == "TOT_MALE" & AGEGRP == "age40_44") ~ "male_age40_44",
+                              (var_code == "TOT_MALE" & AGEGRP == "age45_49") ~ "male_age45_49",
+                              (var_code == "TOT_MALE" & AGEGRP == "age50_54") ~ "male_age50_54",
+                              (var_code == "TOT_MALE" & AGEGRP == "age55_59") ~ "male_age55_59",
+                              (var_code == "TOT_MALE" & AGEGRP == "age60_64") ~ "male_age60_64",
+                              (var_code == "TOT_MALE" & AGEGRP == "age65_69") ~ "male_age65_69",
+                              (var_code == "TOT_MALE" & AGEGRP == "age70_74") ~ "male_age70_74",
+                              (var_code == "TOT_MALE" & AGEGRP == "age75_79") ~ "male_age75_79",
+                              (var_code == "TOT_MALE" & AGEGRP == "age80_84") ~ "male_age80_84",
+                              (var_code == "TOT_MALE" & AGEGRP == "age85") ~ "male_age85",
+                              (var_code == "TOT_FEMALE" & AGEGRP == "age0_4") ~ "female_age0_4",
+                              (var_code == "TOT_FEMALE" & AGEGRP == "age5_9") ~ "female_age5_9",
+                              (var_code == "TOT_FEMALE" & AGEGRP == "age10_14") ~ "female_age10_14",
+                              (var_code == "TOT_FEMALE" & AGEGRP == "age15_19") ~ "female_age15_19",
+                              (var_code == "TOT_FEMALE" & AGEGRP == "age20_24") ~ "female_age20_24",
+                              (var_code == "TOT_FEMALE" & AGEGRP == "age25_29") ~ "female_age25_29",
+                              (var_code == "TOT_FEMALE" & AGEGRP == "age30_34") ~ "female_age30_34",
+                              (var_code == "TOT_FEMALE" & AGEGRP == "age35_39") ~ "female_age35_39",
+                              (var_code == "TOT_FEMALE" & AGEGRP == "age40_44") ~ "female_age40_44",
+                              (var_code == "TOT_FEMALE" & AGEGRP == "age45_49") ~ "female_age45_49",
+                              (var_code == "TOT_FEMALE" & AGEGRP == "age50_54") ~ "female_age50_54",
+                              (var_code == "TOT_FEMALE" & AGEGRP == "age55_59") ~ "female_age55_59",
+                              (var_code == "TOT_FEMALE" & AGEGRP == "age60_64") ~ "female_age60_64",
+                              (var_code == "TOT_FEMALE" & AGEGRP == "age65_69") ~ "female_age65_69",
+                              (var_code == "TOT_FEMALE" & AGEGRP == "age70_74") ~ "female_age70_74",
+                              (var_code == "TOT_FEMALE" & AGEGRP == "age75_79") ~ "female_age75_79",
+                              (var_code == "TOT_FEMALE" & AGEGRP == "age80_84") ~ "female_age80_84",
+                              (var_code == "TOT_FEMALE" & AGEGRP == "age85") ~ "female_age85",
+                              (var_code == "TOT_POP" & AGEGRP == "age0_4") ~ "age0_4",
+                              (var_code == "TOT_POP" & AGEGRP == "age5_9") ~ "age5_9",
+                              (var_code == "TOT_POP" & AGEGRP == "age10_14") ~ "age10_14",
+                              (var_code == "TOT_POP" & AGEGRP == "age15_19") ~ "age15_19",
+                              (var_code == "TOT_POP" & AGEGRP == "age20_24") ~ "age20_24",
+                              (var_code == "TOT_POP" & AGEGRP == "age25_29") ~ "age25_29",
+                              (var_code == "TOT_POP" & AGEGRP == "age30_34") ~ "age30_34",
+                              (var_code == "TOT_POP" & AGEGRP == "age35_39") ~ "age35_39",
+                              (var_code == "TOT_POP" & AGEGRP == "age40_44") ~ "age40_44",
+                              (var_code == "TOT_POP" & AGEGRP == "age45_49") ~ "age45_49",
+                              (var_code == "TOT_POP" & AGEGRP == "age50_54") ~ "age50_54",
+                              (var_code == "TOT_POP" & AGEGRP == "age55_59") ~ "age55_59",
+                              (var_code == "TOT_POP" & AGEGRP == "age60_64") ~ "age60_64",
+                              (var_code == "TOT_POP" & AGEGRP == "age65_69") ~ "age65_69",
+                              (var_code == "TOT_POP" & AGEGRP == "age70_74") ~ "age70_74",
+                              (var_code == "TOT_POP" & AGEGRP == "age75_79") ~ "age75_79",
+                              (var_code == "TOT_POP" & AGEGRP == "age80_84") ~ "age80_84",
+                              (var_code == "TOT_POP" & AGEGRP == "age85") ~ "age85"))
+
+#### County estimates: Create final version of c_est #### 
+# Drop AGEGRP from c_est
+# Only keep records with var_code containing male or female
+c_est <- c_est %>%
+  select(-AGEGRP) %>%
+  filter(str_detect(var_code, "male")) %>%
+  filter(!str_detect(var_code, "total")) %>%
+  arrange(GISJOIN, var_code, date1)
+
+
+#### County estimates: County recodes #### 
+# Recode Oglala Lakota county (G4601020) to Shannon county (G4601130) so it matches with 2010
+# Recode Kusilvak Census area (G0201580) to Wade Hampton Census Area (G0202700) so it matches 2010
+c_est <- c_est %>%
+  mutate(GISJOIN = case_when(GISJOIN == "G4601020" ~ "G4601130",
+                             GISJOIN == "G0201580" ~ "G0202700",
+                             TRUE ~ GISJOIN))
+
+########################################################
+# Step 3 - adjust tract linear interpolations to sum to
+# county estimates
+######################################################## 
+# This is the third step that actually creates the annual estimate for each tract. It first 
+# processes the county data (county estimates from Census Bureau and linearly interpolated county 
+# estimates). It joins the two data frames together on GISJOIN and date1, and then computes the 
+# ratio between variables from each df. 
+# 
+# It then reduces the final county df down to the needed variables. 
+# 
+# Next, the script adds the county GISJOIN to each record in the tract df. It then joins the 
+# county df to the tract df on the county GISJOIN and date1. 
+# 
+# FINALLY, the script multiplies the linearly interpolated variable by the county ratio to yield 
+# the adjusted tract value. This final step would be run multiple times if we were processing 
+# multiple variables. 
+# 
+# Updated 2018-11-30
+# I updated the script to work with var_code instead of actual variable names. Looks like it works
+# fine!
+# 
+# Updated 2020-02-25
+# I updated this script for 2000-2010 to only handle the t_female and t_male dataframes because
+# that's all we need for this product.
+
+# join CB population estimates to county linear interpolation (t) on GISJOIN and date1 
+c <- left_join(c, c_est, by=c("GISJOIN","date1","var_code"))
+
+# compute ratio of county estimate to linear interpolation value 
+# this step would need to be run more times if we had more than 1 variable we were estimating
+c <- mutate(c, var_ratio = n.y / n.x)
+
+# keep only needed vars for tract interpolation
+# this step would need to keep more variables if we're estimating more than 1 variable
+c <- select(c, GISJOIN, var_code, date1, n.x, n.y, var_ratio)
+
+#create a GISJOIN_CTY on tract data
+t_male <- mutate(t_male, GISJOIN_CTY = substr(GISJOIN, 1, 8))
+t_female <- mutate(t_female, GISJOIN_CTY = substr(GISJOIN, 1, 8))
+
+# join county data to tract for final processing 
+t_male <- left_join(t_male, c, by=c("GISJOIN_CTY" = "GISJOIN", "date1"="date1", "var_code" = "var_code"))
+t_female <- left_join(t_female, c, by=c("GISJOIN_CTY" = "GISJOIN", "date1"="date1", "var_code" = "var_code"))
+
+# multiply tract linear interpolation estimate by value of county ratio 
+# - this gives me a tract estimate adjusted by the ratio of the county estimate to the linearly
+# interpolated county value
+t_male <- mutate(t_male, n_est = n * var_ratio)
+t_female <- mutate(t_female, n_est = n * var_ratio)
+
+# fields to keep in output data
+t_male <- select(t_male, GISJOIN, STATE, date1, cum_days_interval, var_code, n_diff, n.x, n.y, var_ratio, n, n_est)
+t_female <- select(t_female, GISJOIN, STATE, date1, cum_days_interval, var_code, n_diff, n.x, n.y, var_ratio, n, n_est)
+
+# write out the CSV files
+write_csv(t_male, paste0(outdata_dir, "tct10_19_male.csv"))
+write_csv(t_female, paste0(outdata_dir, "tct10_19_female.csv"))
 
 
