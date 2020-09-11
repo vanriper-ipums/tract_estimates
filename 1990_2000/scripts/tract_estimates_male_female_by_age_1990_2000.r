@@ -36,8 +36,13 @@ source("/pkg/popgis/labpcs/data_projects/tract_estimates/2000_2010/scripts/tidy_
 popest_dir <- "/pkg/popgis/labpcs/data_projects/tract_estimates/1990_2000/data/popest/"
 nhgis_dir <- "/pkg/popgis/labpcs/data_projects/tract_estimates/1990_2000/data/nhgis/"
 outdata_dir <- "/pkg/popgis/labpcs/data_projects/tract_estimates/1990_2000/data/outdata/"
+data_dir <- "/pkg/popgis/labpcs/data_projects/tract_estimates/1990_2000/data/"
 
 setwd("/pkg/popgis/labpcs/data_projects/tract_estimates/1990_2000/data/popest/")
+
+#### 0. Load the cum_days_interval CSV #### 
+cum_days <- read_csv(paste0(data_dir, "cumulative_days_intervals_1990_2000.csv"))
+
 
 ###### Prepare the 1990 - 1999 county estimates
 # create list of individual text files to process
@@ -409,10 +414,19 @@ t_male <- pad_months(t_male, GISJOIN, var_code, date1, "1990-04-01", "2000-04-01
 c <- pad_months(c, GISJOIN, var_code, date1, "1990-04-01", "2000-04-01")
 
 # 5. Compute cumulative sum of days_interval for each group for the 1990-2000 time period
-t_female <- compute_cum_days_interval_1990_2000(t_female, date1, cum_days_interval)
-t_male <- compute_cum_days_interval_1990_2000(t_male, date1, cum_days_interval)
-c <- compute_cum_days_interval_1990_2000(c, date1, cum_days_interval)
+# t_female <- compute_cum_days_interval_1990_2000(t_female, date1, cum_days_interval)
+# t_male <- compute_cum_days_interval_1990_2000(t_male, date1, cum_days_interval)
+# c <- compute_cum_days_interval_1990_2000(c, date1, cum_days_interval)
 
+# 5. Join the cum_days df to t_female, t_male, and c 
+t_female <- t_female %>%
+  left_join(cum_days, by = c("date1" = "date"))
+
+t_male <- t_male %>%
+  left_join(cum_days, by = c("date1" = "date"))
+
+c <- c %>%
+  left_join(cum_days, by = c("date1" = "date"))
 # 6. fill diff and var_code down by group 
 t_female <- fill_down(t_female, GISJOIN, var_code, n)
 t_male <- fill_down(t_male, GISJOIN, var_code, n)

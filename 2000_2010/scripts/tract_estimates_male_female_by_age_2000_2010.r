@@ -1,4 +1,4 @@
-# tract_estimates_male_female_by_age_1990_2000.r
+# tract_estimates_male_female_by_age_2000_2010.r
 # David Van Riper
 # 2018-11-20
 # 
@@ -27,10 +27,14 @@ library(padr)
 popest_dir <- "/pkg/popgis/labpcs/data_projects/tract_estimates/2000_2010/data/popest/"
 nhgis_dir <- "/pkg/popgis/labpcs/data_projects/tract_estimates/2000_2010/data/nhgis/"
 outdata_dir <- "/pkg/popgis/labpcs/data_projects/tract_estimates/2000_2010/data/outdata/"
+data_dir <- "/pkg/popgis/labpcs/data_projects/tract_estimates/2000_2010/data/"
 
 setwd("/pkg/popgis/labpcs/data_projects/tract_estimates/2000_2010/data/popest/")
 
-# 1. Import CB county estimates 2000-2010
+#### 0. Load the cum_days_interval CSV #### 
+cum_days <- read_csv(paste0(data_dir, "cumulative_days_intervals_2000_2010.csv"))
+
+#### 1. Import CB county estimates 2000-2010 ####
 # AGEGRP = 99 (total)
 # 1 = 4/1/2000 resident population estimates base
 # 2 = 7/1/2000 resident population estimate
@@ -340,10 +344,20 @@ t_female <- pad_months(t_female, GISJOIN, var_code, date1, "2000-04-01", "2010-0
 t_male <- pad_months(t_male, GISJOIN, var_code, date1, "2000-04-01", "2010-04-01")
 c <- pad_months(c, GISJOIN, var_code, date1, "2000-04-01", "2010-04-01")
 
+# 6. Join the cum_days df to t_female, t_male, and c 
+t_female <- t_female %>%
+  left_join(cum_days, by = c("date1" = "date"))
+
+t_male <- t_male %>%
+  left_join(cum_days, by = c("date1" = "date"))
+
+c <- c %>%
+  left_join(cum_days, by = c("date1" = "date"))
+
 # 6. Compute cumulative sum of days_interval for each group for the 2000-2010 time period
-t_female <- compute_cum_days_interval_2000_2010(t_female, date1, cum_days_interval)
-t_male <- compute_cum_days_interval_2000_2010(t_male, date1, cum_days_interval)
-c <- compute_cum_days_interval_2000_2010(c, date1, cum_days_interval)
+#t_female <- compute_cum_days_interval_2000_2010(t_female, date1, cum_days_interval)
+#t_male <- compute_cum_days_interval_2000_2010(t_male, date1, cum_days_interval)
+#c <- compute_cum_days_interval_2000_2010(c, date1, cum_days_interval)
 
 # 7. fill diff and CL8AA down by group 
 t_female <- fill_down(t_female, GISJOIN, var_code, n)
